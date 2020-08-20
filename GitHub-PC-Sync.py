@@ -326,10 +326,8 @@ def PC_to_GitHub(repo_dict):
                         new_github_repo_url = new_github_repo.html_url
 
                 gitInit(new_github_repo, new_github_repo_url, org)
-                log_entry(org, repo, True, False, True)
+                log_entry(org, repo_name, True, False, True, url=new_github_repo_url)
 
-            if repo_count == len(pc_repos) - 1:
-                print('No new repos for <{}>'.format(org))
 
     # Start of PC_to_GitHub() content
     for org in organizations:
