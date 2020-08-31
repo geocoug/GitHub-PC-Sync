@@ -1,8 +1,14 @@
 # https://pygithub.readthedocs.io/en/latest/introduction.html
+
+# TO-DO
+#   - Script does a pull first, require user deal with merge
+#   - Use repo.organization.login to determine where repo should go
+# ==============================================================================
 import sys
 import os
 import subprocess
 import datetime
+import pandas as pd
 
 if sys.version_info < (3,):
     print('Must use Python version 3')
@@ -46,7 +52,7 @@ temp_bat = os.path.join(_cwd, 'temp.bat')
 log = os.path.join(os.getcwd(), 'sync_log.txt')
 
 # create a Github instance using an access token
-g = Github("github-key")
+g = Github("github-token") # Admin
 github_user = g.get_user().login
 
 organizations = ['geocoug-master',
@@ -59,44 +65,28 @@ organizations = ['geocoug-master',
 
 excluded_repos = []
 
+misc_repo_urls = {'arcgis-python-api': "https://github.com/Esri/arcgis-python-api.git"}
+
 def fetchRepos():
-    print('\nFetching PC and GitHub repos:')
+    print('\nFETCHING PC & GITHUB REPOS:')
+    print('=' * 75)
 
     pc_master_repos = [repo for repo in os.listdir(master_dir) if repo not in excluded_repos]
-    github_master_repos = [repo.name for repo in g.get_user().get_repos() if repo.name not in excluded_repos and repo.organization is None]
-    print('   User         : {}'.format(github_user))
-    print('   PC repos     : {}'.format(len(pc_master_repos)))
-    print('   GitHub repos : {}\n'.format(len(github_master_repos)))
+    github_master_repos = [repo for repo in g.get_user().get_repos() if repo.name not in excluded_repos and repo.organization is None]
 
     pc_archive_repos = [repo for repo in os.listdir(archive_dir) if repo not in excluded_repos]
-    github_archive_repos = [repo.name for repo in g.get_organization('geocoug-archive').get_repos() if repo.name not in excluded_repos]
-    print('   Organization : {}'.format(os.path.basename(archive_dir)))
-    print('   PC repos     : {}'.format(len(pc_archive_repos)))
-    print('   GitHub repos : {}\n'.format(len(github_archive_repos)))
+    github_archive_repos = [repo for repo in g.get_organization('geocoug-archive').get_repos() if repo.name not in excluded_repos]
 
     pc_working_repos = [repo for repo in os.listdir(working_dir) if repo not in excluded_repos]
-    github_working_repos = [repo.name for repo in g.get_organization('geocoug-working').get_repos() if repo.name not in excluded_repos]
-    print('   Organization : {}'.format(os.path.basename(working_dir)))
-    print('   PC repos     : {}'.format(len(pc_working_repos)))
-    print('   GitHub repos : {}\n'.format(len(github_working_repos)))
+    github_working_repos = [repo for repo in g.get_organization('geocoug-working').get_repos() if repo.name not in excluded_repos]
 
     pc_wsc_repos = [repo for repo in os.listdir(wsc_dir) if repo not in excluded_repos]
-    github_wsc_repos = [repo.name for repo in g.get_organization('Western-States-Consult').get_repos() if repo.name not in excluded_repos]
-    print('   Organization : {}'.format(os.path.basename(wsc_dir)))
-    print('   PC repos     : {}'.format(len(pc_wsc_repos)))
-    print('   GitHub repos : {}\n'.format(len(github_wsc_repos)))
+    github_wsc_repos = [repo for repo in g.get_organization('Western-States-Consult').get_repos() if repo.name not in excluded_repos]
 
     pc_mhk_repos = [repo for repo in os.listdir(mhk_dir) if repo not in excluded_repos]
-    github_mhk_repos = [repo.name for repo in g.get_organization('mhk-env').get_repos() if repo.name not in excluded_repos]
-    print('   Organization : {}'.format(os.path.basename(mhk_dir)))
-    print('   PC repos     : {}'.format(len(pc_mhk_repos)))
-    print('   GitHub repos : {}\n'.format(len(github_mhk_repos)))
+    github_mhk_repos = [repo for repo in g.get_organization('mhk-env').get_repos() if repo.name not in excluded_repos]
 
     pc_misc_repos = [repo for repo in os.listdir(misc_dir) if repo not in excluded_repos]
-    print('   Organization : {}'.format(os.path.basename(misc_dir)))
-    print('   PC repos     : {}\n'.format(len(pc_misc_repos)))
-
-    print('-' * 75)
 
     repo_dict = {
         'geocoug-master': {'pc_master_repos': pc_master_repos,
@@ -111,6 +101,14 @@ def fetchRepos():
                     'github_mhk_repos': github_mhk_repos},
         'miscellaneous': {'pc_misc_repos': pc_misc_repos}
     }
+
+    repo_tbl = {
+        'Directory': [org for org in organizations if org != 'miscellaneous'],
+        'PC_Repo_Count': [len(pc_master_repos), len(pc_archive_repos), len(pc_working_repos), len(pc_wsc_repos), len(pc_mhk_repos)],
+        'GitHub_Repo_Count': [len(github_master_repos), len(github_archive_repos), len(github_working_repos), len(github_wsc_repos), len(github_mhk_repos)]
+    }
+    df = pd.DataFrame(repo_tbl)
+    print(df.to_string(index=False))
 
     return repo_dict
 
@@ -144,11 +142,10 @@ def GitHub_to_PC(repo_dict):
 
     def pullRepos(org, pc_repos, github_repos):
         if org == 'geocoug-master':
-            for repo_name in github_repos:
-                if repo_name in excluded_repos:
+            for repo in github_repos:
+                if repo.name in excluded_repos:
                     pass
                 else:
-                    repo = g.get_user().get_repo(repo_name)
                     print('PULLING REPOSITORY')
                     print('   User   : ', github_user)
                     print('   Repo   : ', repo.name)
@@ -203,15 +200,10 @@ def GitHub_to_PC(repo_dict):
                     print('\n')
 
         else:
-            for repo_name in github_repos:
-                if repo_name in excluded_repos:
+            for repo in github_repos:
+                if repo.name in excluded_repos:
                     pass
                 else:
-                    if org == 'geocoug-wsc':
-                        repo = g.get_organization('Western-States-Consult').get_repo(repo_name)
-                    else:
-                        repo = g.get_organization(org).get_repo(repo_name)
-
                     print('PULLING REPOSITORY')
                     print('   Org    : ', org)
                     print('   Repo   : ', repo.name)
@@ -299,7 +291,7 @@ def PC_to_GitHub(repo_dict):
 
         repo_count = 0
         for repo_name in pc_repos:
-            if repo_name in github_repos:
+            if repo_name in [repo.name for repo in github_repos]:
                 repo_count += 1
                 pass
             else:
